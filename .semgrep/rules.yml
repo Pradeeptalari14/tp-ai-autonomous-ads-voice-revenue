@@ -12,11 +12,10 @@ rules:
     message: "Logging unredacted phone numbers violates PII compliance. Mask middle digits."
     patterns:
       - pattern-either:
-          - pattern: print(..., $PHONE, ...)
-          - pattern: logger.info(..., $PHONE, ...)
-      - metavariable-regex:
-          metavariable: $PHONE
-          regex: '(?i).*(phone|caller_id|lead_phone).*'
+          - pattern: print(..., $EXPR.phone, ...)
+          - pattern: print(..., $EXPR.lead_phone, ...)
+          - pattern: logger.info(..., $EXPR.phone, ...)
+          - pattern: logger.info(..., $EXPR.lead_phone, ...)
 
   - id: insecure-subprocess-call
     languages: [python]

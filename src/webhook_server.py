@@ -31,6 +31,12 @@ class DispositionPayload(BaseModel):
     estimated_deal_value: float = 0.0
     summary: Optional[str] = None
 
+def mask_contact_e164(raw_val: str) -> str:
+    """Masks phone number for TCPA/DPDP privacy compliance (e.g. +917330****88)."""
+    if not raw_val or len(raw_val) <= 6:
+        return "***"
+    return f"{raw_val[:6]}****{raw_val[-2:]}"
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "lead-voice-gateway"}
@@ -38,7 +44,8 @@ async def health_check():
 @app.post("/api/v1/meta/leads")
 async def handle_meta_lead(payload: LeadPayload, bg_tasks: BackgroundTasks):
     """Captures Meta lead form event and schedules instant voice dispatch."""
-    print(f"[WEBHOOK] Inbound Lead Captured: #{payload.lead_id} ({payload.name}, {payload.phone})")
+    masked_contact = mask_contact_e164(payload.phone)
+    print(f"[WEBHOOK] Inbound Lead Captured: #{payload.lead_id} ({payload.name}, {masked_contact})")
     bg_tasks.add_task(dispatch_outbound_call, payload)
     return {
         "status": "queued",
@@ -48,7 +55,8 @@ async def handle_meta_lead(payload: LeadPayload, bg_tasks: BackgroundTasks):
 
 async def dispatch_outbound_call(lead: LeadPayload):
     """Simulates immediate telephony dispatch via OmniDimension / LiveKit / Twilio SIP."""
-    print(f"[VOICE] Initiating low-latency call to {lead.phone}...")
+    masked_contact = mask_contact_e164(lead.phone)
+    print(f"[VOICE] Initiating low-latency call to {masked_contact}...")
     await asyncio.sleep(0.3)
     print(f"[VOICE] Call connected for Lead #{lead.lead_id}. Awaiting disposition webhook.")
 
