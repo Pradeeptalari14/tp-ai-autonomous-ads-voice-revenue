@@ -1,0 +1,84 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Enterprise Hardened Docker Compose: Full-Stack Closed-Loop Revenue Engine
+# Includes Redis queue, OpenTelemetry Collector, and FastAPI Non-Root Service
+# ═══════════════════════════════════════════════════════════════════════════════
+version: '3.8'
+
+services:
+  revenue-orchestrator:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: ghcr.io/pradeeptalari14/tp-ai-autonomous-ads-voice-revenue:1.0.0
+    container_name: revenue-orchestrator
+    user: "65532:65532"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp/runtime:size=128M,mode=1777
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - REDIS_URL=redis://redis:6379/0
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - MIN_ROAS_FLOOR=1.8
+      - MAX_DAILY_BUDGET=500
+      - CIRCUIT_BREAKER_MAX_FAILURES=3
+    env_file:
+      - ../.env.example
+    depends_on:
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health').read()"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - closed-loop-net
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: revenue-redis
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "devsecops_redis_secret"]
+    user: "999:999"
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "devsecops_redis_secret", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - closed-loop-net
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.96.0
+    container_name: revenue-otel-collector
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "8889:8889" # Prometheus metrics exporter
+    restart: unless-stopped
+    networks:
+      - closed-loop-net
+
+volumes:
+  redis-data:
+
+networks:
+  closed-loop-net:
+    driver: bridge

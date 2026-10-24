@@ -1,0 +1,25 @@
+rules:
+  - id: hardcoded-meta-secret-check
+    languages: [python]
+    severity: ERROR
+    message: "Potential hardcoded Meta Graph API secret or Anthropic token detected. Use environment variables."
+    patterns:
+      - pattern-regex: '(?i)(meta_app_secret|anthropic_api_key|omnidimension_key)\s*=\s*["\x27][0-9a-zA-Z_\-]{16,}["\x27]'
+
+  - id: raw-phone-number-logging
+    languages: [python]
+    severity: WARNING
+    message: "Logging unredacted phone numbers violates PII compliance. Mask middle digits."
+    patterns:
+      - pattern-either:
+          - pattern: print(..., $PHONE, ...)
+          - pattern: logger.info(..., $PHONE, ...)
+      - metavariable-regex:
+          metavariable: $PHONE
+          regex: '(?i).*(phone|caller_id|lead_phone).*'
+
+  - id: insecure-subprocess-call
+    languages: [python]
+    severity: ERROR
+    message: "Unsafe subprocess execution detected without strict array arguments."
+    pattern: subprocess.call($CMD, shell=True, ...)

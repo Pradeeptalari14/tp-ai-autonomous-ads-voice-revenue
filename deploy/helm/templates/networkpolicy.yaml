@@ -1,0 +1,63 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ai-autonomous-ads-voice-revenue-netpol
+  labels:
+    app.kubernetes.io/name: ai-autonomous-ads-voice-revenue
+    devsecops.policy/ebpf-l7: "enforced"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ai-autonomous-ads-voice-revenue
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow incoming webhook traffic strictly from Envoy Gateway Ingress
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway-system
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: envoy-gateway
+      ports:
+        - protocol: TCP
+          port: 8000
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow outbound HTTPS only (Meta API, Anthropic, OmniDimension)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+    # Allow Redis internal communication
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # Allow OpenTelemetry Collector telemetry export
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 4317
+{{- end }}

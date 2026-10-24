@@ -1,0 +1,49 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-autonomous-revenue-image-and-security
+  annotations:
+    policies.kyverno.io/title: Verify Cosign Signatures & Non-Root Execution
+    policies.kyverno.io/category: DevSecOps Software Supply Chain
+    policies.kyverno.io/severity: high
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: verify-sigstore-cosign-image
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - default
+                - production
+              selector:
+                matchLabels:
+                  app.kubernetes.io/name: ai-autonomous-ads-voice-revenue
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/pradeeptalari14/tp-ai-autonomous-ads-voice-revenue*"
+          attestors:
+            - entries:
+                - keyless:
+                    issuer: "https://token.actions.githubusercontent.com"
+                    subject: "https://github.com/Pradeeptalari14/tp-ai-autonomous-ads-voice-revenue/.github/workflows/*"
+                    rekor:
+                      url: "https://rekor.sigstore.dev"
+    - name: enforce-non-root-uid-65532
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              selector:
+                matchLabels:
+                  app.kubernetes.io/name: ai-autonomous-ads-voice-revenue
+      validate:
+        message: "Running as root is forbidden. Pod must set runAsNonRoot=true and runAsUser=65532."
+        pattern:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 65532

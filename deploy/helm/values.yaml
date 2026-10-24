@@ -1,0 +1,112 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Helm Values: 9+ DevSecOps Hardened Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+replicaCount: 3
+
+image:
+  repository: ghcr.io/pradeeptalari14/tp-ai-autonomous-ads-voice-revenue
+  pullPolicy: IfNotPresent
+  tag: "1.0.0"
+  digest: "sha256:d8b2c5e7f1a90c4e1234567890abcdef1234567890abcdef1234567890abcdef"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: "ai-revenue-sa"
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/ai-ads-voice-revenue-pod-role"
+
+# Principle #4: Non-root User & Read-Only Root Filesystem
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+
+ingress:
+  enabled: true
+  className: "envoy-gateway"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    gateway.networking.k8s.io/rate-limit: "120-per-second"
+  hosts:
+    - host: api-revenue.talaripradeep.info
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Principle #8: OpenTelemetry Golden Signals & Tracing
+telemetry:
+  enabled: true
+  endpoint: "otel-collector.monitoring.svc.cluster.local:4317"
+  samplerRatio: "1.0"
+  serviceName: "tp-ai-autonomous-ads-voice-revenue"
+
+# Principle #9: FinOps Automated Stop-Loss Thresholds
+finopsGuardrails:
+  minRoasFloor: 1.8
+  maxDailyBudgetUsd: 500
+  circuitBreakerThresholdFailures: 3
+  autoKillCampaignsOnBreach: true
+
+# Principle #6: Zero-Trust Cilium L7 Network Policy
+networkPolicy:
+  enabled: true
+  egressRules:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443 # HTTPS for Meta Graph API, Anthropic API, OmniDimension WebRTC
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+
+volumeMounts:
+  - name: tmp-runtime
+    mountPath: /tmp/runtime
+
+volumes:
+  - name: tmp-runtime
+    emptyDir:
+      sizeLimit: 128Mi

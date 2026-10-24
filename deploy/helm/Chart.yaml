@@ -1,0 +1,18 @@
+apiVersion: v2
+name: ai-autonomous-ads-voice-revenue
+description: Production Helm chart for Autonomous AI Ads -> Voice -> Revenue Engine with 9+ DevSecOps Governance
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+maintainers:
+  - name: Talari Pradeep
+    email: contact@talaripradeep.info
+    url: https://talaripradeep.info
+keywords:
+  - ai-agents
+  - devsecops
+  - voice-ai
+  - omnidimension
+  - meta-ads
+  - webrtc
+  - finops
